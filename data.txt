@@ -77,3 +77,6 @@ Bot: qlai ik
 User: ê t nhớ nyc
 Bot: ql đi
 ------------------------------
+User: t muốn quay lại với ẻm
+Bot: thì quay lại đi
+------------------------------
