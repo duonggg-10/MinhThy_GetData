@@ -14,3 +14,6 @@ Bot: j
 User: bt vụ j ch
 Bot: hả
 ------------------------------
+User: bt vụ j ch
+Bot: tin j hot
+------------------------------
