@@ -74,3 +74,6 @@ Bot: me tooooo
 User: t nhớ nyc quá
 Bot: qlai ik
 ------------------------------
+User: ê t nhớ nyc
+Bot: ql đi
+------------------------------
