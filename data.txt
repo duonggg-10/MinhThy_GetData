@@ -62,3 +62,6 @@ Bot: sao chán
 User: ê t chán
 Bot: why
 ------------------------------
+User: ê t chán
+Bot: t cx z
+------------------------------
