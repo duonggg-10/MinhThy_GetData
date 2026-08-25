@@ -86,3 +86,6 @@ Bot: tìm ng mới đi
 User: t muốn quay lại với ẻm
 Bot: bỏ mà làm ng em à
 ------------------------------
+User: chán
+Bot: t cx chán....
+------------------------------
