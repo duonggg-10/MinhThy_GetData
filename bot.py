@@ -20,17 +20,19 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+# Tự động loại bỏ khoảng trắng thừa hoặc dấu nháy nếu lỡ tay paste nhầm
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip().strip('"').strip("'")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip().strip('"').strip("'")
 
-# Cấu hình thông tin Repo GitHub của bạn
 GITHUB_REPO = "duonggg-10/MinhThy_GetData"
 GITHUB_FILE_PATH = "data.txt"
 GITHUB_BRANCH = "main"
 
 # ----------------- HÀM GHI DỮ LIỆU LÊN GITHUB -----------------
 def append_to_github(new_text: str):
-    """Lấy nội dung cũ trên GitHub, ghép nội dung mới và commit đè lên"""
+    if not GITHUB_TOKEN:
+        raise Exception("GITHUB_TOKEN đang trống! Vui lòng cấu hình biến môi trường.")
+
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}?ref={GITHUB_BRANCH}"
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -41,27 +43,26 @@ def append_to_github(new_text: str):
     sha = None
     old_content = ""
 
-    # 1. Đọc nội dung file hiện tại trên GitHub (để lấy SHA và nội dung cũ)
+    # 1. Đọc nội dung file cũ từ GitHub
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
         with urllib.request.urlopen(req) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             sha = data.get("sha")
-            # GitHub mã hóa nội dung bằng Base64
             encoded_content = data.get("content", "")
             old_content = base64.b64decode(encoded_content).decode('utf-8')
     except HTTPError as e:
         if e.code == 404:
-            # File chưa tồn tại trên repo -> sẽ tạo file mới
-            old_content = ""
+            old_content = ""  # File chưa có trên GitHub thì tạo mới
         else:
-            raise Exception(f"Lỗi đọc GitHub (Mã {e.code}): {e.read().decode('utf-8')}")
+            error_msg = e.read().decode('utf-8')
+            raise Exception(f"Lỗi GitHub (Mã {e.code}): {error_msg}")
 
-    # 2. Ghép nội dung mới vào cuối file cũ
+    # 2. Ghép nội dung mới
     updated_content = old_content + new_text
     base64_content = base64.b64encode(updated_content.encode('utf-8')).decode('utf-8')
 
-    # 3. Gửi PUT request để tạo Commit mới lên GitHub
+    # 3. Tạo commit ghi đè lên GitHub
     put_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}"
     payload = {
         "message": "Update data.txt via Telegram Bot",
@@ -69,7 +70,7 @@ def append_to_github(new_text: str):
         "branch": GITHUB_BRANCH
     }
     if sha:
-        payload["sha"] = sha  # Bắt buộc phải có sha nếu file đã tồn tại
+        payload["sha"] = sha
 
     req_put = urllib.request.Request(
         put_url,
@@ -79,7 +80,7 @@ def append_to_github(new_text: str):
     )
     with urllib.request.urlopen(req_put) as resp:
         if resp.status not in (200, 201):
-            raise Exception(f"Không thể commit lên GitHub. Mã: {resp.status}")
+            raise Exception(f"Không thể ghi lên GitHub. Mã trạng thái: {resp.status}")
 
 # ----------------- TẠO WEB SERVER ĐỂ RENDER NHẬN PORT -----------------
 class KeepAliveHandler(BaseHTTPRequestHandler):
@@ -107,19 +108,21 @@ def run_dummy_server():
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     
-    if text and "/USER" in text and "/BOT" in text:
+    # Kiểm tra xem tin nhắn có chứa cả 2 thẻ hay không
+    if text and "/USER" in text.upper() and "/BOT" in text.upper():
         try:
-            user_match = re.search(r'/USER\s+(.*?)(?=/BOT|$)', text, re.DOTALL | re.IGNORECASE)
-            bot_match = re.search(r'/BOT\s+(.*?)(?=/USER|$)', text, re.DOTALL | re.IGNORECASE)
+            # Regex cải tiến: Cho phép để trống nội dung sau /USER hoặc /BOT
+            user_match = re.search(r'/USER\b\s*(.*?)(?=\s*/BOT\b|$)', text, re.DOTALL | re.IGNORECASE)
+            bot_match = re.search(r'/BOT\b\s*(.*?)(?=\s*/USER\b|$)', text, re.DOTALL | re.IGNORECASE)
             
             if user_match and bot_match:
                 user_content = user_match.group(1).strip()
                 bot_content = bot_match.group(1).strip()
                 
-                # Tạo đoạn text cần ghi
+                # Tạo đoạn text lưu
                 entry = f"User: {user_content}\nBot: {bot_content}\n" + ("-" * 30) + "\n"
                 
-                # Ghi trực tiếp lên GitHub
+                # Ghi lên GitHub
                 append_to_github(entry)
                 
                 await update.message.reply_text("✅ Đã commit và lưu dữ liệu lên GitHub thành công!")
@@ -138,7 +141,7 @@ def main():
         logging.error("❌ GITHUB_TOKEN chưa được cài đặt!")
         return
 
-    # Chạy Web server ngầm
+    # Chạy Web server ngầm cho Render
     server_thread = threading.Thread(target=run_dummy_server, daemon=True)
     server_thread.start()
 
