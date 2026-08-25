@@ -68,3 +68,6 @@ Bot: t cx z
 User: ê t chán
 Bot: t cx v
 ------------------------------
+User: ê t chán
+Bot: me tooooo
+------------------------------
